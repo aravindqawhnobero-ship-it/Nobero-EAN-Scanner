@@ -180,34 +180,32 @@ async function onScanSuccess(decodedText) {
 
 }
 
-function startScanner() {
 
-  scanner = new Html5Qrcode("reader");
-
-  scanner.start(
-    { facingMode: "environment" },
-    {
-      fps: 10,
-      qrbox: { width: 280, height: 120 },
-      formatsToSupport: [
-        Html5QrcodeSupportedFormats.EAN_13,
-        Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.UPC_A,
-        Html5QrcodeSupportedFormats.UPC_E
-      ]
+scanner.start(
+  { facingMode: "environment" },
+  {
+    fps: 15,
+    qrbox: function(viewfinderWidth, viewfinderHeight) {
+      return {
+        width: Math.min(viewfinderWidth * 0.90, 450),
+        height: Math.min(viewfinderHeight * 0.65, 180)
+      };
     },
-    onScanSuccess
-  ).then(() => {
-
-    message("Camera Ready - Scan Barcode", "success");
-
-  }).catch(error => {
-
-    message("Camera Error: " + error, "error");
-
-  });
-
-}
+    aspectRatio: 1.777,
+    disableFlip: false,
+    formatsToSupport: [
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.UPC_A,
+      Html5QrcodeSupportedFormats.UPC_E
+    ]
+  },
+  onScanSuccess
+).then(() => {
+  message("Camera Ready - Keep Barcode Inside Box", "success");
+}).catch(error => {
+  message("Camera Error: " + error, "error");
+});
 
 window.onload = startScanner;
 
