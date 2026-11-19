@@ -1,77 +1,93 @@
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>NOBERO EAN SCANNER</title>
+<title>NOBERO EAN SCANNER</title>
 
-  <script src="https://unpkg.com/html5-qrcode"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f2f3f5;
-      margin: 0;
-      padding: 20px;
-      text-align: center;
-    }
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f2f3f5;
+  margin: 0;
+  padding: 15px;
+  text-align: center;
+}
 
-    .app {
-      max-width: 450px;
-      margin: auto;
-      background: white;
-      padding: 20px;
-      border-radius: 15px;
-      box-shadow: 0 2px 12px #ddd;
-    }
+.app {
+  max-width: 450px;
+  margin: 20px auto;
+  padding: 20px;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 2px 12px #ddd;
+}
 
-    h2 { color: #222; }
+h2 {
+  color: #222;
+}
 
-    #reader {
-      width: 100%;
-      margin: 20px auto;
-    }
+#reader {
+  width: 100%;
+  margin: 20px auto;
+}
 
-    #result {
-      padding: 15px;
-      background: #eee;
-      border-radius: 8px;
-      font-weight: bold;
-      overflow-wrap: anywhere;
-    }
+#result {
+  padding: 15px;
+  margin-top: 15px;
+  background: #eee;
+  border-radius: 8px;
+  font-size: 17px;
+  font-weight: bold;
+  overflow-wrap: anywhere;
+}
 
-    .success {
-      background: #d9f7df !important;
-      color: green;
-    }
+.success {
+  background: #d9f7df !important;
+  color: #126b29;
+}
 
-    .error {
-      background: #ffe0e0 !important;
-      color: #b00020;
-    }
+.error {
+  background: #ffe0e0 !important;
+  color: #b00020;
+}
 
-    #count {
-      margin-top: 15px;
-      color: #555;
-    }
-  </style>
+#count {
+  margin-top: 15px;
+  color: #555;
+}
+
+button {
+  padding: 12px 22px;
+  background: #222;
+  color: white;
+  border: 0;
+  border-radius: 8px;
+  font-size: 16px;
+  margin: 8px;
+}
+</style>
 </head>
 
 <body>
 
 <div class="app">
 
-  <h2>NOBERO EAN SCANNER</h2>
+<h2>NOBERO EAN SCANNER</h2>
 
-  <p>Garment Tag Barcode Scan செய்யவும்</p>
+<p>Garment Tag Barcode Scan செய்யவும்</p>
 
-  <div id="reader"></div>
+<div id="reader"></div>
 
-  <div id="result">Connecting...</div>
+<div id="result">Initializing Scanner...</div>
 
-  <div id="count">Scanned: 0</div>
+<div id="count">Scanned: 0</div>
+
+<button onclick="restartScanner()">Restart Camera</button>
 
 </div>
 
@@ -80,11 +96,11 @@
 const API_URL =
 "https://script.google.com/macros/s/AKfycbxvS8xQF6YKDhoVrcP0ij6rGedgNbb9zxjwMKcYzvq_fhkx9NdipLz6483zMu-vxg3g-g/exec";
 
-let scanner;
+let scanner = null;
 let busy = false;
 let scanCount = 0;
 
-function message(text, type) {
+function showMessage(text, type) {
   const box = document.getElementById("result");
   box.innerText = text;
   box.className = type || "";
@@ -100,16 +116,16 @@ function saveEAN(ean) {
 
     const script = document.createElement("script");
 
-    let finished = false;
+    let completed = false;
 
     const timeout = setTimeout(() => {
       cleanup();
-      reject(new Error("Server Timeout. Try Again."));
+      reject(new Error("Server Timeout"));
     }, 20000);
 
     function cleanup() {
-      if (finished) return;
-      finished = true;
+      if (completed) return;
+      completed = true;
       clearTimeout(timeout);
       delete window[callbackName];
       script.remove();
@@ -118,10 +134,12 @@ function saveEAN(ean) {
     window[callbackName] = function(response) {
       cleanup();
 
-      if (response.ok) {
+      if (response && response.ok) {
         resolve(response);
       } else {
-        reject(new Error(response.message));
+        reject(new Error(
+          response ? response.message : "Invalid Server Response"
+        ));
       }
     };
 
@@ -145,13 +163,13 @@ async function onScanSuccess(decodedText) {
 
   if (busy) return;
 
-  const ean = decodedText.trim();
+  const ean = String(decodedText).trim();
 
   if (!/^\d{8,14}$/.test(ean)) return;
 
   busy = true;
 
-  message("Saving: " + ean, "");
+  showMessage("Saving EAN: " + ean, "");
 
   try {
 
@@ -162,52 +180,95 @@ async function onScanSuccess(decodedText) {
     document.getElementById("count").innerText =
       "Scanned: " + scanCount;
 
-    message(
-      "✓ " + response.ean + " Saved Successfully",
+    showMessage(
+      "SUCCESS! " + response.ean + " Saved",
       "success"
     );
 
   } catch(error) {
 
-    message("Error: " + error.message, "error");
+    showMessage("ERROR: " + error.message, "error");
 
   }
 
   setTimeout(() => {
     busy = false;
-    message("Ready for Next Scan", "");
+    showMessage("READY FOR NEXT SCAN", "");
   }, 1200);
 
 }
 
+async function startScanner() {
 
-scanner.start(
-  { facingMode: "environment" },
-  {
-    fps: 15,
-    qrbox: function(viewfinderWidth, viewfinderHeight) {
-      return {
-        width: Math.min(viewfinderWidth * 0.90, 450),
-        height: Math.min(viewfinderHeight * 0.65, 180)
-      };
-    },
-    aspectRatio: 1.777,
-    disableFlip: false,
-    formatsToSupport: [
-      Html5QrcodeSupportedFormats.EAN_13,
-      Html5QrcodeSupportedFormats.EAN_8,
-      Html5QrcodeSupportedFormats.UPC_A,
-      Html5QrcodeSupportedFormats.UPC_E
-    ]
-  },
-  onScanSuccess
-).then(() => {
-  message("Camera Ready - Keep Barcode Inside Box", "success");
-}).catch(error => {
-  message("Camera Error: " + error, "error");
+  if (typeof Html5Qrcode === "undefined") {
+    showMessage(
+      "Scanner Library Not Loaded. Check Internet Connection.",
+      "error"
+    );
+    return;
+  }
+
+  showMessage("Starting Camera...", "");
+
+  try {
+
+    scanner = new Html5Qrcode("reader");
+
+    await scanner.start(
+      { facingMode: "environment" },
+
+      {
+        fps: 15,
+        qrbox: function(width, height) {
+          return {
+            width: Math.min(width * 0.90, 450),
+            height: Math.min(height * 0.60, 180)
+          };
+        },
+        disableFlip: false,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E
+        ]
+      },
+
+      onScanSuccess
+
+    );
+
+    showMessage("CAMERA READY - SCAN BARCODE", "success");
+
+  } catch(error) {
+
+    showMessage("CAMERA ERROR: " + error, "error");
+
+  }
+
+}
+
+async function restartScanner() {
+
+  if (scanner) {
+    try {
+      await scanner.stop();
+      scanner.clear();
+    } catch(error) {}
+  }
+
+  scanner = null;
+  startScanner();
+
+}
+
+window.addEventListener("load", function() {
+
+  showMessage("Checking Scanner Library...", "");
+
+  setTimeout(startScanner, 300);
+
 });
-
-window.onload = startScanner;
 
 </script>
 
